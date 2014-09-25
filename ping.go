@@ -120,16 +120,15 @@ func parseICMPEcho(b []byte) (*icmpEcho, error) {
 	return p, nil
 }
 
-func Ping(address string, timeout int) (alive bool) {
+func Ping(address string, timeout int) bool {
 	err := Pinger(address, timeout)
-	alive = err == nil
-	return
+	return err == nil
 }
 
-func Pinger(address string, timeout int) (err error) {
+func Pinger(address string, timeout int) error {
 	c, err := net.Dial("ip4:icmp", address)
 	if err != nil {
-		return
+		return err
 	}
 	c.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 	defer c.Close()
@@ -144,20 +143,20 @@ func Pinger(address string, timeout int) (err error) {
 		},
 	}).Marshal()
 	if err != nil {
-		return
+		return err
 	}
 	if _, err = c.Write(wb); err != nil {
-		return
+		return err
 	}
 	var m *icmpMessage
 	rb := make([]byte, 20+len(wb))
 	for {
 		if _, err = c.Read(rb); err != nil {
-			return
+			return err
 		}
 		rb = ipv4Payload(rb)
 		if m, err = parseICMPMessage(rb); err != nil {
-			return
+			return err
 		}
 		switch m.Type {
 		case icmpv4EchoRequest, icmpv6EchoRequest:
@@ -165,7 +164,7 @@ func Pinger(address string, timeout int) (err error) {
 		}
 		break
 	}
-	return
+	return nil
 }
 
 func ipv4Payload(b []byte) []byte {
