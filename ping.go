@@ -120,17 +120,17 @@ func parseICMPEcho(b []byte) (*icmpEcho, error) {
 	return p, nil
 }
 
-func Ping(address string, timeout int) bool {
+func Ping(address string, timeout time.Duration) bool {
 	err := Pinger(address, timeout)
 	return err == nil
 }
 
-func Pinger(address string, timeout int) error {
+func Pinger(address string, timeout time.Duration) error {
 	c, err := net.Dial("ip4:icmp", address)
 	if err != nil {
 		return err
 	}
-	c.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+	c.SetDeadline(time.Now().Add(timeout))
 	defer c.Close()
 
 	typ := icmpv4EchoRequest
