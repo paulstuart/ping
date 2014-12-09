@@ -120,20 +120,37 @@ func parseICMPEcho(b []byte) (*icmpEcho, error) {
 	return p, nil
 }
 
-func Ping(address string, timeout time.Duration) bool {
+func Ping(address *net.IPAddr, timeout time.Duration) bool {
 	err := Pinger(address, timeout)
 	return err == nil
 }
 
-func Pinger(address string, timeout time.Duration) error {
-	c, err := net.Dial("ip4:icmp", address)
+func Pinger(address *net.IPAddr, timeout time.Duration) error {
+	var (
+		c   *net.IPConn
+		err error
+	)
+
+	v6 := address.IP.To4() == nil
+
+	if v6 {
+		c, err = net.DialIP("ip6:ipv6-icmp", nil, address)
+	} else {
+		c, err = net.DialIP("ip4:icmp", nil, address)
+	}
 	if err != nil {
 		return err
 	}
+
 	c.SetDeadline(time.Now().Add(timeout))
 	defer c.Close()
 
 	typ := icmpv4EchoRequest
+
+	if v6 {
+		typ = icmpv6EchoRequest
+	}
+
 	xid, xseq := os.Getpid()&0xffff, 1
 	wb, err := (&icmpMessage{
 		Type: typ, Code: 0,
@@ -154,10 +171,13 @@ func Pinger(address string, timeout time.Duration) error {
 		if _, err = c.Read(rb); err != nil {
 			return err
 		}
-		rb = ipv4Payload(rb)
+		if !v6 {
+			rb = ipv4Payload(rb)
+		}
 		if m, err = parseICMPMessage(rb); err != nil {
 			return err
 		}
+
 		switch m.Type {
 		case icmpv4EchoRequest, icmpv6EchoRequest:
 			continue
